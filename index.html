@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stacks — Library Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f3;--card:#fff;--ink:#12222e;--mut:#5d6b76;--wood:#3b2a20;--brass:#c9a227;--line:#d5dbe0}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1a22;--card:#16262f;--ink:#e8eef2;--mut:#93a4b0;--line:#27404d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Bricolage Grotesque',system-ui,sans-serif}
+header{padding:20px 16px 0;max-width:1000px;margin:auto}
+h1{margin:0;font-size:2rem;letter-spacing:-.03em}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:20px;cursor:pointer;font:inherit}
+nav button.on{background:var(--ink);color:var(--bg)}
+main{max-width:1000px;margin:auto;padding:0 16px 40px}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;min-width:130px;background:var(--card);padding:14px;border-left:4px solid var(--brass)}
+.stat b{font-size:1.8rem;display:block}
+.shelf{display:flex;align-items:flex-end;gap:4px;padding:14px 14px 0;background:var(--card);overflow-x:auto;border-bottom:14px solid var(--wood);min-height:230px}
+.spine{writing-mode:vertical-rl;height:190px;padding:10px 6px;color:#fff;font-size:.85rem;border:0;cursor:pointer;border-radius:3px 3px 0 0;text-align:left;position:relative;transition:transform .15s}
+.spine:hover,.spine:focus-visible{transform:translateY(-10px);outline:2px solid var(--brass)}
+.spine.out{opacity:.35}
+.spine i{position:absolute;top:5px;left:50%;width:7px;height:7px;border-radius:50%;background:var(--brass);transform:translateX(-50%)}
+table{width:100%;border-collapse:collapse;background:var(--card);margin-top:10px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:.92rem}
+th{color:var(--mut);font-weight:400}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+input,select{padding:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;border-radius:6px;flex:1;min-width:120px}
+.btn{background:var(--ink);color:var(--bg);border:0;padding:9px 14px;border-radius:6px;cursor:pointer;font:inherit}
+.btn.brass{background:var(--brass);color:#1a1405}
+.tag{padding:2px 8px;border-radius:10px;font-size:.78rem;background:var(--line)}
+.tag.late{background:#c92a2a;color:#fff}
+dialog{border:0;border-radius:10px;background:var(--card);color:var(--ink);padding:20px;max-width:340px;width:90%}
+dialog::backdrop{background:#0008}
+.pay{display:flex;gap:8px;margin:12px 0}
+.pay label{flex:1;border:2px solid var(--line);border-radius:8px;padding:10px;text-align:center;cursor:pointer}
+.pay input{display:none}
+.pay label:has(input:checked){border-color:var(--brass);background:#c9a22722}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;display:none}
+section{display:none}section.on{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>Stacks</h1>
+  <nav id="nav"></nav>
+</header>
+<main>
+<section id="home">
+  <div class="stats" id="stats"></div>
+  <h3>Today's pick</h3><div id="pick" class="stat"></div>
+  <h3>The shelf <small style="color:var(--mut);font-weight:400">— tap a spine to lend it</small></h3>
+  <div class="shelf" id="shelf"></div>
+</section>
+<section id="books">
+  <div class="row"><input id="bt" placeholder="Title"><input id="ba" placeholder="Author"><input id="bc" type="number" min="1" value="1"><button class="btn" onclick="addBook()">Add book</button></div>
+  <input id="q" placeholder="Search title or author" oninput="renderBooks()">
+  <table id="bt2"></table>
+</section>
+<section id="members">
+  <div class="row"><input id="mn" placeholder="Name"><input id="me" type="email" placeholder="Email"><button class="btn" onclick="addMember()">Add member</button></div>
+  <table id="mt"></table>
+</section>
+<section id="loans"><table id="lt"></table></section>
+<section id="pays"><table id="pt"></table></section>
+</main>
+
+<dialog id="lend"><h3 id="lendTitle"></h3><select id="who"></select>
+  <div class="row"><button class="btn brass" onclick="doIssue()">Lend for 14 days</button><button class="btn" onclick="lend.close()">Cancel</button></div></dialog>
+
+<dialog id="payDlg"><h3>Pay fine</h3><p id="payAmt"></p>
+  <div class="pay">
+    <label><input type="radio" name="m" value="CASH" checked>Cash</label>
+    <label><input type="radio" name="m" value="CARD">Card</label>
+    <label><input type="radio" name="m" value="UPI">UPI</label>
+  </div>
+  <div class="row"><button class="btn brass" onclick="doPay()">Confirm payment</button><button class="btn" onclick="payDlg.close()">Cancel</button></div></dialog>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const tabs={home:'Shelf',books:'Books',members:'Members',loans:'Loans',pays:'Payments'};
+let books=[],members=[],bookId=0,loanId=0;
+
+$('nav').innerHTML=Object.entries(tabs).map(([k,v])=>`<button data-t="${k}" onclick="go('${k}')">${v}</button>`).join('');
+function go(t){document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===t));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));load();}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
+async function api(p,d){
+  const r=await fetch('/api/'+p,d?{method:'POST',body:new URLSearchParams(d)}:{});
+  const j=await r.json();if(j.error)throw new Error(j.error);return j;}
+const safe=f=>async(...a)=>{try{await f(...a)}catch(e){toast(e.message)}};
+const e=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hue=t=>[...t].reduce((h,c)=>(h*31+c.charCodeAt(0))%360,7);
+
+async function load(){
+  [books,members]=await Promise.all([api('books'),api('members')]);
+  const s=(await api('stats'))[0];
+  $('stats').innerHTML=[['Books',s.books],['Members',s.members],['On loan',s.issued],['Overdue',s.overdue],['Fines collected','₹'+s.collected]]
+    .map(([l,v])=>`<div class="stat"><b>${v}</b>${l}</div>`).join('');
+  if(books.length){const b=books[new Date().getDate()%books.length];
+    $('pick').innerHTML=`<b style="font-size:1.2rem">${e(b.title)}</b>${e(b.author)}`;}
+  $('shelf').innerHTML=books.map(b=>`<button class="spine ${b.available?'':'out'}" style="background:hsl(${hue(b.title)} 45% 32%);width:${30+Math.min(b.title.length,24)}px"
+    onclick="openLend(${b.id})" title="${e(b.title)} — ${b.available}/${b.copies} in">${b.available?'<i></i>':''}${e(b.title)}</button>`).join('')||'<p>No books yet.</p>';
+  renderBooks();
+  $('mt').innerHTML='<tr><th>Name</th><th>Email</th></tr>'+members.map(m=>`<tr><td>${e(m.name)}</td><td>${e(m.email)}</td></tr>`).join('');
+  const L=await api('issues');
+  $('lt').innerHTML='<tr><th>Book</th><th>Member</th><th>Due</th><th>Status</th><th></th></tr>'+L.map(i=>{
+    const late=!i.return_date&&i.fine_now>0;
+    const st=i.return_date?(i.fine>0?(i.fine_paid?'<span class="tag">Fine paid</span>':'<span class="tag late">Fine ₹'+i.fine+'</span>'):'<span class="tag">Returned</span>'):(late?'<span class="tag late">Overdue ₹'+i.fine_now+'</span>':'<span class="tag">On loan</span>');
+    const act=!i.return_date?`<button class="btn" onclick="giveBack(${i.id})">Return</button>`:(i.fine>0&&!i.fine_paid?`<button class="btn brass" onclick="openPay(${i.id},${i.fine})">Pay</button>`:'');
+    return `<tr><td>${e(i.title)}</td><td>${e(i.name)}</td><td>${i.due_date}</td><td>${st}</td><td>${act}</td></tr>`}).join('');
+  const P=await api('payments');
+  $('pt').innerHTML='<tr><th>Ref</th><th>Book</th><th>Member</th><th>Amount</th><th>Method</th><th>When</th></tr>'+P.map(p=>`<tr><td>${p.txn_ref}</td><td>${e(p.title)}</td><td>${e(p.name)}</td><td>₹${p.amount}</td><td>${p.method}</td><td>${p.paid_at}</td></tr>`).join('');
+}
+function renderBooks(){
+  const q=$('q').value.toLowerCase();
+  $('bt2').innerHTML='<tr><th>Title</th><th>Author</th><th>In stock</th></tr>'+books.filter(b=>(b.title+b.author).toLowerCase().includes(q))
+    .map(b=>`<tr><td>${e(b.title)}</td><td>${e(b.author)}</td><td>${b.available}/${b.copies}</td></tr>`).join('');}
+const addBook=safe(async()=>{await api('books',{title:$('bt').value,author:$('ba').value,copies:$('bc').value});$('bt').value=$('ba').value='';toast('Book added');load();});
+const addMember=safe(async()=>{await api('members',{name:$('mn').value,email:$('me').value});$('mn').value=$('me').value='';toast('Member added');load();});
+function openLend(id){bookId=id;const b=books.find(x=>x.id==id);$('lendTitle').textContent=b.title;
+  $('who').innerHTML=members.map(m=>`<option value="${m.id}">${e(m.name)}</option>`).join('');$('lend').showModal();}
+const doIssue=safe(async()=>{await api('issue',{bookId,memberId:$('who').value});$('lend').close();toast('Lent. Due in 14 days');load();});
+const giveBack=safe(async id=>{await api('return',{issueId:id});toast('Returned');load();});
+function openPay(id,amt){loanId=id;$('payAmt').textContent='Amount due: ₹'+amt;$('payDlg').showModal();}
+const doPay=safe(async()=>{const r=await api('pay',{issueId:loanId,method:document.querySelector('input[name=m]:checked').value});
+  $('payDlg').close();toast('Paid ₹'+r.amount+' · ref '+r.txn);load();});
+go('home');
+</script>
+</body>
+</html>
