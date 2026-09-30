@@ -1,27 +1,26 @@
-# Stacks — Library Management System
+# Library Management System (Java + JDBC + MySQL)
 
-Java 17 + JDBC (MySQL) back end, single-page HTML front end. No frameworks.
+Console application with a layered design: `ui -> service -> dao -> MySQL`.
 
 ## Features
-- Books and members: add, search, stock tracking
-- Shelf view: each book is a colored spine; tap one to lend it
-- Loans: 14-day lending, returns, automatic fine of ₹5 per late day
-- Fine payment: Cash, Card or UPI, with a unique transaction reference and a payment history
-- Dashboard: totals, overdue count, fines collected, and a daily book pick
+- Student and Librarian roles, PBKDF2 password hashing, session handling
+- Books and categories: add, search, delete, stock tracking
+- Issue and return with transactions, loan limit and due dates
+- Automatic fine on late returns, fine payment by Cash, Card or UPI
+- Text receipts saved to `receipts/`, in-app notifications, reports
+- JUnit 5 tests for the logic that needs no database
 
-## Run
-1. Create the database: `mysql -u root -p < database/schema.sql`
-2. Set credentials if yours differ from root/root:
-   `export DB_URL=jdbc:mysql://localhost:3306/librarydb DB_USER=root DB_PASS=yourpass`
-3. Start: `mvn compile exec:java`
-4. Open http://localhost:8080
+## Setup
+1. Run the SQL files in this order:
+   ```
+   mysql -u root -p < database/library_db.sql
+   mysql -u root -p < database/database_schema.sql
+   mysql -u root -p < database/sample_data.sql
+   ```
+2. Edit `src/main/resources/application.properties` with your MySQL user and password. Do not commit a real password.
+3. Run: `mvn compile exec:java`
+4. First login: `admin@library.com` / `admin123` (created automatically on first start; change it). Students can sign up from the login menu.
+5. Tests: `mvn test`
 
-## Structure
-```
-database/schema.sql
-pom.xml
-src/main/java/library/Db.java       JDBC helpers
-src/main/java/library/Server.java   API endpoints + static page
-src/main/resources/public/index.html
-```
-The payment step is a stand-in: swap the `txn_ref` generation in `Server.pay()` for a real gateway call (Razorpay, Stripe) when you go live.
+## Card and UPI
+Card numbers and UPI ids are only validated, never stored. Connect a real gateway inside `PaymentService.pay` for live payments.

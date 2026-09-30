@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>library</groupId>
+  <groupId>com.library</groupId>
   <artifactId>library-management-system</artifactId>
   <version>1.0</version>
   <properties>
@@ -14,14 +14,26 @@
       <artifactId>mysql-connector-j</artifactId>
       <version>8.4.0</version>
     </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <build>
+    <testSourceDirectory>tests</testSourceDirectory>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.2.0</version>
-        <configuration><mainClass>library.Server</mainClass></configuration>
+        <configuration><mainClass>com.library.Main</mainClass></configuration>
       </plugin>
     </plugins>
   </build>
